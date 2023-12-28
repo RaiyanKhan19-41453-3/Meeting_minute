@@ -1,0 +1,228 @@
+﻿@{
+    ViewBag.Title = "Home Page";
+}
+
+<h3>Meeting Minutes</h3>
+
+<form method="post">
+    <table class="form-control">
+        <tr>
+            <div class="form-group">
+                <input type="radio" name="CustomerType" value="Corporate" checked> Corporate
+                <input type="radio" name="CustomerType" value="Individual"> Individual
+            </div>
+        </tr>
+        <tr>
+            <td>Customer Name</td>
+            <td><select name="CustomerName" id="CustomerId"></select></td>
+            <td>Meeting Agenda</td>
+            <td><textarea id="MeetingAgenda" name="MeetingAgenda" rows="2" cols="40" placeholder="Meeting Agenda"></textarea></td>
+        </tr>
+        <tr>
+            <td>Date</td>
+            <td>
+                <input type="datetime-local" id="MeetingDate" name="MeetingDate" class="form-control" />
+            </td>
+            <td>Meeting Discussion</td>
+            <td><textarea id="MeetingDiscussion" name="MeetingDiscussion" rows="2" cols="40" placeholder="Meeting Discussion"></textarea></td>
+        </tr>
+        <tr>
+            <td>Attends From Client Side</td>
+            <td><textarea id="AttendsFromClientSide" name="AttendsFromClientSide" rows="2" cols="40" placeholder="Present Client Side"></textarea></td>
+            <td>Meeting Decission</td>
+            <td><textarea id="MeetingDecission" name="MeetingDecision" rows="2" cols="40" placeholder="Meeting Decission"></textarea></td>
+        </tr>
+        <tr>
+            <td>Attends From Host Side</td>
+            <td><textarea id="AttendsFromHostSide" name="AttendsFromHostSide" rows="2" cols="40" placeholder="Present Self Side"></textarea></td>
+        </tr>
+    </table>
+
+    <br />
+
+    <table class="form-control">
+        <tr>
+            <td>Interested Product / Service</td>
+            <td colspan="4"><select name="ProductName" id="ProductService"></select></td>
+        </tr>
+        <tr>
+            <td>Quantity</td>
+            <td><input type="number" id="QuantityId" class="form-control" /></td>
+            <td>Unit</td>
+            <td><input type="text" id="UnitId" readonly /></td>
+        </tr>
+    </table>
+    <button id="AddButton" class="btn btn-primary">Add</button>
+
+    <br />
+
+    <table id="DataTable">
+        <thead id="h">
+            <tr>
+                <th>SL#</th>
+                <th>Interested Product/Service Name</th>
+                <th>Unit</th>
+                <th>Quantity</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody id="d">
+
+        </tbody>
+    </table>
+
+    <button type="submit" id="SaveButton" class="btn btn-primary">Save</button>
+
+</form>
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+
+<script>
+    $(document).ready(function () {
+        $("input[name='CustomerType']").change(function () {
+            var customerType = $("input[name='CustomerType']:checked").val();
+            loadCustomers(customerType);
+        });
+
+        function loadCustomers(customerType) {
+            $.get('/Home/GetCustomers', { customerType: customerType }, function (data) {
+                var select = $("#CustomerId");
+                select.empty();
+                select.append($("<option disabled selected>").text('---Select Customer Name---'));
+                $.each(data, function (index, item) {
+                    select.append($("<option>").val(item.Id).text(item.Name));
+                });
+            });
+        }
+
+        $('#ProductService').change(function () {
+            var selectedProductId = $(this).val();
+            loadUnitForProduct(selectedProductId);
+        });
+
+        function loadUnitForProduct(productId) {
+            $.get('/Home/GetUnitForProduct', { productId: productId }, function (data) {
+                $('#UnitId').val(data.Unit);
+            });
+        }
+
+        function loadProductService() {
+            $.get('/Home/GetProductServices', function (data) {
+                var select = $('#ProductService');
+                select.empty().append($("<option disabled selected>").text('---Select Product/Service Interested---'));
+
+                $.each(data, function (index, item) {
+                    select.append($('<option>').val(item.Id).text(item.ServiceName));
+                });
+            });
+        }
+
+        loadProductService()
+
+        $('#AddButton').on('click', function (e) {
+            e.preventDefault();
+            addRowToTable();
+        });
+        function addRowToTable() {
+            var sl = $('#ProductService').val()
+            var productService = $('#ProductService :selected').text();
+            var unit = $('#UnitId').val();
+            var quantity = $('#QuantityId').val();
+            console.log(sl);
+            console.log(productService);
+            console.log(unit);
+            console.log(quantity);
+
+            if (sl && productService && unit && quantity) {
+                var newRow = $('<tr name="MeetingDetails[]">');
+                newRow.append('<td>' + sl + '</td>')
+                newRow.append('<td>' + productService + '</td>');
+                newRow.append('<td>' + unit + '</td>');
+                newRow.append('<td>' + quantity + '</td>');
+                newRow.append('<td><button class="editButton">Edit</button><button class="deleteButton">Delete</button></td>');
+
+                $('#DataTable tbody').append(newRow);
+
+                $('#QuantityId').val('');
+            }
+            else
+            {
+                console.log('Please select a Product/Service and enter Quantity.');
+            }
+        }
+
+        $('#DataTable').on('click', '.deleteButton', function (e) {
+            e.preventDefault();
+            $(this).closest('tr').remove();
+        });
+
+        $('#DataTable').on('click', '.editButton', function (e) {
+            e.preventDefault();
+            var row = $(this).closest('tr');
+            var sl = row.find('td:eq(0)').text();
+            var productService = row.find('td:eq(1)').text();
+            var unit = row.find('td:eq(2)').text();
+            var quantity = row.find('td:eq(3)').text();
+
+            $('#ProductService').val(productService);
+            $('#UnitId').val(unit);
+            $('#QuantityId').val(quantity);
+
+            $('#ProductService option:contains("' + productService + '")').prop('selected', true);
+            row.remove();
+        });
+
+        $('#SaveButton').on('click', function (e) {
+            e.preventDefault();
+            saveData();
+        });
+
+        function saveData() {
+            var meetingData = {
+                CustomerType: $("input[name='CustomerType']:checked").val(),
+                CustomerName: $("#CustomerId").val(),
+                MeetingAgenda: $("#MeetingAgenda").val(),
+                MeetingDate: $("#MeetingDate").val(),
+                MeetingDiscussion: $("#MeetingDiscussion").val(),
+                AttendsFromClientSide: $("#AttendsFromClientSide").val(),
+                MeetingDecision: $("#MeetingDecission").val(),
+                AttendsFromHostSide: $("#AttendsFromHostSide").val(),
+                MeetingDetails: []
+            };
+
+            $('#DataTable tbody tr').each(function (index, row) {
+                var $row = $(row);
+                var sl = $row.find('td:eq(0)').text();
+                var productService = $row.find('td:eq(1)').text();
+                var unit = $row.find('td:eq(2)').text();
+                var quantity = $row.find('td:eq(3)').text();
+
+                var meetingDetail = {
+                    SL: sl,
+                    ProductService: productService,
+                    Unit: unit,
+                    Quantity: quantity
+                };
+
+                meetingData.MeetingDetails.push(meetingDetail);
+                console.log(meetingData)
+            });
+
+            $.ajax({
+                url: '/Home/SaveMeeting',
+                type: 'POST',
+                contentType: 'application/json',
+                data: "{meeting:"+JSON.stringify(meetingData)+"}",
+                success: function (response) {
+                    alert("Done");
+                },
+                error: function (error) {
+                    alert("Failed");
+                }
+            });
+        }
+
+        var initialCustomerType = $("input[name='CustomerType']:checked").val();
+        loadCustomers(initialCustomerType);
+    });
+</script>
